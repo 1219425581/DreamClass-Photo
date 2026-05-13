@@ -1,0 +1,10 @@
+.claude/
+AI-photo/
+backend/.env
+backend/supai_config.json
+backend/image_api_config.json
+backend/static/*.png
+frontend/node_modules/
+frontend/dist/
+__pycache__/
+*.pyc
