@@ -11,9 +11,11 @@ services:
         value: 3.11.0
       - key: IMAGE_API_PROVIDER
         value: siliconflow
-      - key: AUTH_ENABLED
+      - key: ACCESS_CONTROL_MODE
+        value: campus_ip
+      - key: CAMPUS_ALLOWED_CIDRS
+        sync: false
+      - key: CAMPUS_ALLOW_PRIVATE_IPS
         value: "false"
-      - key: AUTH_PROVIDER
-        value: oidc
-      - key: AUTH_COOKIE_SECURE
+      - key: TRUST_PROXY_HEADERS
         value: "true"

@@ -13,8 +13,8 @@ const PROMPT_EXAMPLES = [
   "温柔女魔法师，银色长发，戴圆框眼镜，手持法杖，奇幻治愈风格",
 ];
 
-function notifyAuthRequired() {
-  window.dispatchEvent(new Event("dreamclass-auth-required"));
+function notifyAccessDenied() {
+  window.dispatchEvent(new Event("dreamclass-access-denied"));
 }
 
 function getStoredSessionId() {
@@ -55,8 +55,8 @@ export default function Join() {
     const loadSession = async () => {
       try {
         const res = await fetch(`/api/session/${sessionId}`, { credentials: "include" });
-        if (res.status === 401) {
-          notifyAuthRequired();
+        if (res.status === 403) {
+          notifyAccessDenied();
           return;
         }
         if (!res.ok) return;
@@ -99,8 +99,8 @@ export default function Join() {
       });
 
       const data = await res.json();
-      if (res.status === 401) {
-        notifyAuthRequired();
+      if (res.status === 403) {
+        notifyAccessDenied();
         return;
       }
       if (!res.ok) throw new Error(data.detail || "生成失败，请重试");
@@ -131,8 +131,8 @@ export default function Join() {
       });
 
       const data = await res.json();
-      if (res.status === 401) {
-        notifyAuthRequired();
+      if (res.status === 403) {
+        notifyAccessDenied();
         return;
       }
       if (!res.ok) throw new Error(data.detail || "同步失败，请重试");

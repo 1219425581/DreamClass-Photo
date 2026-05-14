@@ -49,8 +49,8 @@ function getPortraitStyle(index, columns, count) {
   return { offsetX, offsetY, rotate, scale, depth };
 }
 
-function notifyAuthRequired() {
-  window.dispatchEvent(new Event("dreamclass-auth-required"));
+function notifyAccessDenied() {
+  window.dispatchEvent(new Event("dreamclass-access-denied"));
 }
 
 function coverImage(ctx, img, x, y, w, h) {
@@ -69,8 +69,8 @@ export default function Screen() {
 
   const loadRoom = async () => {
     const res = await fetch("/api/room", { credentials: "include" });
-    if (res.status === 401) {
-      notifyAuthRequired();
+    if (res.status === 403) {
+      notifyAccessDenied();
       return;
     }
     if (!res.ok) return;
