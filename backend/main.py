@@ -61,6 +61,8 @@ app.add_middleware(
 
 @app.middleware("http")
 async def campus_access_middleware(request: Request, call_next):
+    if request.url.path == "/healthz":
+        return await call_next(request)
     if ACCESS_CONFIG.get("mode") == "campus_ip" and not request.url.path.startswith("/assets/"):
         client_ip = get_client_ip(request)
         if not is_allowed_ip(client_ip, ACCESS_CONFIG):
@@ -95,6 +97,11 @@ class ProviderRequest(BaseModel):
 
 
 # ── REST API ──────────────────────────────────────────────
+@app.get("/healthz")
+async def healthz():
+    return {"ok": True}
+
+
 @app.get("/api/access-status")
 async def get_access_status(request: Request):
     client_ip = get_client_ip(request)
