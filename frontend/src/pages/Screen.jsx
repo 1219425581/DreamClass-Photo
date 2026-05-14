@@ -49,6 +49,10 @@ function getPortraitStyle(index, columns, count) {
   return { offsetX, offsetY, rotate, scale, depth };
 }
 
+function notifyAuthRequired() {
+  window.dispatchEvent(new Event("dreamclass-auth-required"));
+}
+
 function coverImage(ctx, img, x, y, w, h) {
   const scale = Math.max(w / img.width, h / img.height);
   const sw = w / scale;
@@ -64,7 +68,11 @@ export default function Screen() {
   const gridWrapRef = useRef(null);
 
   const loadRoom = async () => {
-    const res = await fetch("/api/room");
+    const res = await fetch("/api/room", { credentials: "include" });
+    if (res.status === 401) {
+      notifyAuthRequired();
+      return;
+    }
     if (!res.ok) return;
     const data = await res.json();
     setCharacters(Array.isArray(data.characters) ? data.characters : []);
@@ -139,7 +147,7 @@ export default function Screen() {
     ctx.fillText("Congratulations on completing the course", canvas.width / 2, 54);
     ctx.fillStyle = "rgba(255,255,255,0.96)";
     ctx.font = "bold 56px sans-serif";
-    ctx.fillText("《人机协同程序设计》结课纪念合影", canvas.width / 2, 112);
+    ctx.fillText("《人机协同程序设计》结课打卡纪念合影", canvas.width / 2, 112);
     ctx.fillStyle = "rgba(255,255,255,0.62)";
     ctx.font = "24px sans-serif";
     ctx.fillText("祝贺大家完成课程学习，带着创造力继续前行", canvas.width / 2, 150);
@@ -249,7 +257,7 @@ export default function Screen() {
             CONGRATULATIONS · COURSE COMPLETED
           </p>
           <h1 className="mx-auto mt-1 max-w-5xl text-3xl font-black tracking-tight md:text-5xl">
-            《人机协同程序设计》结课纪念合影
+            《人机协同程序设计》结课打卡纪念合影
           </h1>
           <div className="mt-2 flex flex-wrap items-center justify-center gap-2 text-xs text-violet-100/85">
             <span className="rounded-full border border-white/10 bg-white/10 px-3 py-1">祝贺大家完成课程学习</span>

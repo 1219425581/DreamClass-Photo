@@ -4,19 +4,23 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from auth import add_session_middleware, create_auth_router, require_current_user, require_websocket_user
+from auth_config import load_auth_config, validate_auth_config
 from image_config import get_active_provider, list_providers, load_image_config, set_active_provider
 from replicate_client import generate_image
 
 # ── 内存数据 ──────────────────────────────────────────────
 BASE_DIR = Path(__file__).resolve().parent
 FRONTEND_DIST = BASE_DIR.parent / "frontend" / "dist"
+STATIC_DIR = BASE_DIR / "static"
 MAX_ATTEMPTS = 3
+AUTH_CONFIG = load_auth_config()
 characters: list[dict] = []
 draft_sessions: dict[str, dict] = {}
 generation_lock = asyncio.Lock()
@@ -40,24 +44,31 @@ async def broadcast(message: dict):
 # ── 生命周期 ──────────────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    validate_auth_config(AUTH_CONFIG)
     print("🚀 DreamClass Photo 后端已启动")
     yield
     print("👋 DreamClass Photo 后端已关闭")
 
 
 app = FastAPI(lifespan=lifespan)
+add_session_middleware(app, AUTH_CONFIG)
 
-# CORS：开发阶段允许所有来源
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=AUTH_CONFIG.get("allowed_origins") or ["http://localhost:5173", "http://127.0.0.1:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ── 静态文件：本地生成的图片 ──────────────────────────────
-app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
+
+def require_auth_user(request: Request) -> dict:
+    if not AUTH_CONFIG.get("enabled"):
+        return {}
+    return require_current_user(request)
+
+
+app.include_router(create_auth_router(AUTH_CONFIG))
 
 if FRONTEND_DIST.exists():
     app.mount("/assets", StaticFiles(directory=FRONTEND_DIST / "assets"), name="assets")
@@ -87,13 +98,13 @@ class ProviderRequest(BaseModel):
 
 # ── REST API ──────────────────────────────────────────────
 @app.get("/api/room")
-async def get_room():
+async def get_room(_user: dict = Depends(require_auth_user)):
     """返回当前房间所有角色数据"""
     return {"characters": characters}
 
 
 @app.get("/api/session/{session_id}")
-async def get_session(session_id: str):
+async def get_session(session_id: str, _user: dict = Depends(require_auth_user)):
     draft = draft_sessions.get(session_id)
     if not draft:
         raise HTTPException(status_code=404, detail="会话不存在")
@@ -101,7 +112,7 @@ async def get_session(session_id: str):
 
 
 @app.get("/api/image-provider")
-async def get_image_provider():
+async def get_image_provider(_user: dict = Depends(require_auth_user)):
     config = load_image_config()
     return {
         "activeProvider": get_active_provider(),
@@ -113,7 +124,7 @@ async def get_image_provider():
 
 
 @app.post("/api/image-provider")
-async def update_image_provider(req: ProviderRequest):
+async def update_image_provider(req: ProviderRequest, _user: dict = Depends(require_auth_user)):
     try:
         config = set_active_provider(req.provider)
     except ValueError as e:
@@ -128,7 +139,7 @@ async def update_image_provider(req: ProviderRequest):
 
 
 @app.post("/api/generate")
-async def api_generate(req: GenerateRequest):
+async def api_generate(req: GenerateRequest, _user: dict = Depends(require_auth_user)):
     prompt = req.prompt.strip()
     if not prompt:
         raise HTTPException(status_code=400, detail="请输入形象描述")
@@ -173,7 +184,7 @@ async def api_generate(req: GenerateRequest):
 
 
 @app.post("/api/submit")
-async def api_submit(req: SubmitRequest):
+async def api_submit(req: SubmitRequest, _user: dict = Depends(require_auth_user)):
     draft = draft_sessions.get(req.sessionId)
     if not draft:
         raise HTTPException(status_code=404, detail="会话不存在")
@@ -201,14 +212,14 @@ async def api_submit(req: SubmitRequest):
 
 
 @app.post("/api/debug/reset")
-async def api_debug_reset():
+async def api_debug_reset(_user: dict = Depends(require_auth_user)):
     characters.clear()
     draft_sessions.clear()
     return {"ok": True}
 
 
 @app.get("/api/debug/avatar/{index}.svg")
-async def api_debug_avatar(index: int):
+async def api_debug_avatar(index: int, _user: dict = Depends(require_auth_user)):
     hue = (index * 47) % 360
     accent = (hue + 52) % 360
     svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
@@ -230,7 +241,7 @@ async def api_debug_avatar(index: int):
 
 
 @app.post("/api/debug/seed")
-async def api_debug_seed(req: DebugSeedRequest):
+async def api_debug_seed(req: DebugSeedRequest, _user: dict = Depends(require_auth_user)):
     if req.count < 0 or req.count > 500:
         raise HTTPException(status_code=400, detail="测试人数必须在 0 到 500 之间")
 
@@ -260,6 +271,14 @@ async def api_debug_seed(req: DebugSeedRequest):
 
     await broadcast({"type": "debug_seed", "characters": characters})
     return {"ok": True, "count": len(characters), "characters": characters}
+
+
+@app.get("/static/{file_path:path}")
+async def serve_static_file(file_path: str, _user: dict = Depends(require_auth_user)):
+    path = (STATIC_DIR / file_path).resolve()
+    if STATIC_DIR.resolve() not in path.parents or not path.is_file():
+        raise HTTPException(status_code=404, detail="文件不存在")
+    return FileResponse(path)
 
 
 async def _do_generate_candidate(session_id: str, candidate_id: str, prompt: str):
@@ -295,6 +314,9 @@ async def serve_frontend(full_path: str):
 # ── WebSocket ─────────────────────────────────────────────
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
+    if AUTH_CONFIG.get("enabled") and not require_websocket_user(ws):
+        await ws.close(code=1008)
+        return
     await ws.accept()
     ws_connections.append(ws)
 

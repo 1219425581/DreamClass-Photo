@@ -5,9 +5,15 @@ services:
     region: singapore
     plan: free
     buildCommand: pip install -r backend/requirements.txt && cd frontend && npm install && npm run build
-    startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT
+    startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips='*'
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
       - key: IMAGE_API_PROVIDER
         value: siliconflow
+      - key: AUTH_ENABLED
+        value: "false"
+      - key: AUTH_PROVIDER
+        value: oidc
+      - key: AUTH_COOKIE_SECURE
+        value: "true"

@@ -13,6 +13,10 @@ const PROMPT_EXAMPLES = [
   "温柔女魔法师，银色长发，戴圆框眼镜，手持法杖，奇幻治愈风格",
 ];
 
+function notifyAuthRequired() {
+  window.dispatchEvent(new Event("dreamclass-auth-required"));
+}
+
 function getStoredSessionId() {
   const saved = localStorage.getItem("dreamclass-session-id");
   if (saved) return saved;
@@ -50,7 +54,11 @@ export default function Join() {
     let cancelled = false;
     const loadSession = async () => {
       try {
-        const res = await fetch(`/api/session/${sessionId}`);
+        const res = await fetch(`/api/session/${sessionId}`, { credentials: "include" });
+        if (res.status === 401) {
+          notifyAuthRequired();
+          return;
+        }
         if (!res.ok) return;
         const data = await res.json();
         if (!cancelled) {
@@ -82,6 +90,7 @@ export default function Join() {
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           sessionId,
           nickname: nickname || undefined,
@@ -90,6 +99,10 @@ export default function Join() {
       });
 
       const data = await res.json();
+      if (res.status === 401) {
+        notifyAuthRequired();
+        return;
+      }
       if (!res.ok) throw new Error(data.detail || "生成失败，请重试");
       setSession(data);
     } catch (err) {
@@ -109,6 +122,7 @@ export default function Join() {
       const res = await fetch("/api/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           sessionId,
           candidateId: selectedCandidate.id,
@@ -117,6 +131,10 @@ export default function Join() {
       });
 
       const data = await res.json();
+      if (res.status === 401) {
+        notifyAuthRequired();
+        return;
+      }
       if (!res.ok) throw new Error(data.detail || "同步失败，请重试");
       setSession(data.session);
       setSubmittedCharacter(data.character);
@@ -142,6 +160,12 @@ export default function Join() {
           <p className="text-sm text-white/65">
             {submittedCharacter.nickname}，请看向大屏幕确认你的虚拟形象
           </p>
+          <a
+            href="/screen"
+            className="mt-6 inline-flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-violet-600 to-pink-600 px-5 py-3 font-semibold text-white shadow-lg shadow-violet-950/30"
+          >
+            前往大屏幕观看
+          </a>
         </div>
       </div>
     );
