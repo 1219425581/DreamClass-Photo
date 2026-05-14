@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 
 const PROMPT_TIPS = [
-  "身份方向：阳光少年 / 自信少女 / 温柔魔法师 / 武侠少侠 / 星际旅行者",
-  "外观细节：清爽发型、明亮眼睛、自然微笑、干净气质、灵动神情",
-  "服装道具：校服、汉服、披风、机甲外套、法杖、长剑、星际徽章",
-  "场景氛围：校园光影、竹林晨雾、星舰舷窗、童话森林、未来城市",
-  "画面风格：清新写实、武侠水墨、梦幻童话、电影感、二次元、国风插画",
-  "组合写法：身份 + 发型五官 + 服装道具 + 场景氛围 + 艺术风格",
+  { title: "身份设定", items: "阳光少年、自信少女、武侠少侠、星际旅行者、森林精灵、未来工程师" },
+  { title: "外观气质", items: "清爽发型、明亮眼睛、自然微笑、灵动神情、干净气质、亲和表情" },
+  { title: "服装道具", items: "浅色校服、国风汉服、短披风、机甲外套、法杖长剑、星际徽章" },
+  { title: "场景氛围", items: "校园光影、竹林晨雾、星舰舷窗、桃花微光、未来城市、童话森林" },
+  { title: "画面风格", items: "清新写实、武侠水墨、梦幻童话、国风插画、电影感肖像、二次元治愈" },
+  { title: "组合公式", items: "身份设定 + 外观气质 + 服装道具 + 场景氛围 + 画面风格" },
 ];
 
 const PROMPT_EXAMPLES = [
@@ -181,10 +181,11 @@ export default function Join() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0a0a2e] via-[#1a0a3e] to-[#0a0a1a] p-4 text-white">
-      <div className="mx-auto flex min-h-screen w-full max-w-5xl items-center py-6">
-        <div className="grid w-full gap-5 lg:grid-cols-[0.95fr_1.25fr]">
-          <section className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-2xl shadow-black/20 backdrop-blur-xl">
+    <div className="min-h-screen overflow-x-hidden bg-[#09051f] p-4 text-white">
+      <div className="fixed inset-0 bg-[radial-gradient(circle_at_18%_8%,rgba(168,85,247,0.28),transparent_34%),radial-gradient(circle_at_82%_20%,rgba(236,72,153,0.18),transparent_30%),linear-gradient(135deg,#0a0a2e,#1a0a3e_48%,#0a0a1a)]" />
+      <div className="fixed left-1/2 top-1/2 h-[72vh] w-[68vw] -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-500/10 blur-3xl" />
+      <div className="relative mx-auto grid min-h-screen w-full max-w-6xl gap-5 py-5 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
+          <section className="rounded-[2rem] border border-white/10 bg-white/[0.07] p-5 shadow-2xl shadow-black/25 backdrop-blur-2xl lg:sticky lg:top-5">
             <h1 className="bg-gradient-to-r from-violet-400 to-pink-400 bg-clip-text text-center text-2xl font-black text-transparent">
               DreamClass Photo
             </h1>
@@ -192,7 +193,7 @@ export default function Join() {
               先生成个人肖像，满意后再同步到大屏合影
             </p>
 
-            <form onSubmit={generatePortrait} className="mt-6 space-y-4">
+            <form onSubmit={generatePortrait} className="mt-5 space-y-3.5">
               <div>
                 <label className="mb-1 block text-sm text-white/65">昵称</label>
                 <input
@@ -213,33 +214,54 @@ export default function Join() {
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
                   placeholder="例如：阳光少年，短黑发，明亮眼睛，自然微笑，穿白色衬衫，清新写实风格"
-                  rows={5}
+                  rows={4}
                   disabled={isGenerating || attemptsUsed >= maxAttempts}
                   className="w-full resize-none rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-white/30 outline-none transition focus:border-violet-400 disabled:opacity-60"
                 />
               </div>
 
-              <div className="rounded-2xl border border-violet-300/15 bg-violet-400/10 p-4">
-                <p className="mb-2 text-sm font-semibold text-violet-100">提示词建议</p>
-                <ul className="space-y-1.5 text-xs leading-relaxed text-white/58">
+              <div className="rounded-2xl border border-violet-300/15 bg-gradient-to-br from-violet-400/15 to-pink-400/10 p-3.5 shadow-inner shadow-white/5">
+                <div className="mb-3 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-violet-50">提示词灵感</p>
+                    <p className="mt-0.5 text-[10px] text-white/38">从下面任选几个元素组合，描述会更丰富</p>
+                  </div>
+                  <span className="rounded-full bg-white/10 px-2 py-1 text-[10px] text-white/45">5 步组合</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
                   {PROMPT_TIPS.map((tip) => (
-                    <li key={tip}>• {tip}</li>
+                    <div key={tip.title} className="rounded-xl border border-white/10 bg-black/18 p-2.5 transition hover:border-violet-200/30 hover:bg-white/[0.07]">
+                      <p className="mb-1.5 text-[11px] font-bold text-violet-200">{tip.title}</p>
+                      <p className="text-[11px] leading-[1.7] text-white/62">{tip.items}</p>
+                    </div>
                   ))}
-                </ul>
+                </div>
               </div>
 
-              <div className="flex flex-wrap gap-2">
-                {PROMPT_EXAMPLES.map((example) => (
-                  <button
-                    key={example}
-                    type="button"
-                    onClick={() => setPrompt(example)}
-                    disabled={isGenerating || attemptsUsed >= maxAttempts}
-                    className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-left text-xs text-white/65 transition hover:border-violet-300/50 hover:text-white disabled:opacity-45"
-                  >
-                    {example.slice(0, 18)}...
-                  </button>
-                ))}
+              <div className="rounded-2xl border border-white/10 bg-black/10 p-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-white/85">一键填入示例</p>
+                    <p className="mt-0.5 text-[10px] text-white/38">点击任意卡片，会自动填到上方形象描述中</p>
+                  </div>
+                  <span className="rounded-full bg-violet-400/15 px-2 py-1 text-[10px] text-violet-100">点击试试</span>
+                </div>
+                <div className="max-h-36 overflow-y-auto pr-1 scrollbar-hide">
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {PROMPT_EXAMPLES.map((example) => (
+                      <button
+                        key={example}
+                        type="button"
+                        onClick={() => setPrompt(example)}
+                        disabled={isGenerating || attemptsUsed >= maxAttempts}
+                        className="group rounded-xl border border-white/10 bg-white/[0.06] px-3 py-2 text-left text-[11px] leading-relaxed text-white/65 transition hover:-translate-y-0.5 hover:border-violet-300/50 hover:bg-violet-400/15 hover:text-white hover:shadow-lg hover:shadow-violet-950/20 disabled:opacity-45"
+                      >
+                        <span>{example}</span>
+                        <span className="mt-1 block text-[10px] font-semibold text-violet-200/0 transition group-hover:text-violet-200">点击填入 ↑</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
 
               {error && <p className="text-center text-sm text-red-300">{error}</p>}
@@ -260,7 +282,7 @@ export default function Join() {
             </form>
           </section>
 
-          <section className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-2xl shadow-black/20 backdrop-blur-xl">
+          <section className="rounded-[2rem] border border-white/10 bg-white/[0.07] p-5 shadow-2xl shadow-black/25 backdrop-blur-2xl">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-xl font-bold">候选肖像</h2>
@@ -276,7 +298,7 @@ export default function Join() {
             </div>
 
             {candidates.length === 0 ? (
-              <div className="mt-6 flex min-h-[360px] items-center justify-center rounded-3xl border border-dashed border-white/10 bg-white/[0.03] text-center">
+              <div className="mt-5 flex min-h-[420px] items-center justify-center rounded-[1.75rem] border border-dashed border-violet-200/15 bg-gradient-to-br from-white/[0.06] to-white/[0.02] text-center">
                 <div>
                   <div className="mx-auto mb-4 h-16 w-16 rounded-2xl bg-violet-400/15 ring-1 ring-violet-200/20" />
                   <p className="text-white/70">还没有候选肖像</p>
@@ -284,8 +306,8 @@ export default function Join() {
                 </div>
               </div>
             ) : (
-              <div className="mt-6">
-                <div className="relative mx-auto max-w-sm overflow-hidden rounded-[2rem] border border-white/10 bg-black/20 p-3 shadow-2xl shadow-violet-950/30">
+              <div className="mt-5">
+                <div className="relative mx-auto max-w-md overflow-hidden rounded-[2rem] border border-white/10 bg-gradient-to-br from-black/25 to-violet-950/30 p-3 shadow-2xl shadow-violet-950/30">
                   <div className="aspect-square overflow-hidden rounded-[1.5rem] bg-violet-950/50">
                     {previewCandidate?.status === "done" && previewCandidate?.imageUrl ? (
                       <img
@@ -382,7 +404,6 @@ export default function Join() {
               </button>
             </div>
           </section>
-        </div>
       </div>
     </div>
   );
