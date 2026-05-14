@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
+SECRET_CONFIG_PATH = Path("/etc/secrets/image_api_config.json")
 CONFIG_PATH = BASE_DIR / "image_api_config.json"
 LEGACY_CONFIG_PATH = BASE_DIR / "supai_config.json"
 
@@ -20,8 +21,8 @@ DEFAULT_CONFIG = {
         "siliconflow": {
             "api_key": "",
             "api_url": "https://api.siliconflow.cn/v1/images/generations",
-            "model": "black-forest-labs/FLUX.1-schnell",
-            "size": "1024x1024",
+            "model": "Kwai-Kolors/Kolors",
+            "size": "768x768",
             "timeout": 600,
             "retries": 2,
         },
@@ -58,10 +59,11 @@ def _merge_config(base: dict, override: dict) -> dict:
 
 def load_raw_config() -> dict:
     config = DEFAULT_CONFIG
-    path = CONFIG_PATH if CONFIG_PATH.exists() else LEGACY_CONFIG_PATH
-    if path.exists():
-        with open(path, "r", encoding="utf-8") as f:
-            config = _merge_config(config, json.load(f))
+    for path in [SECRET_CONFIG_PATH, CONFIG_PATH, LEGACY_CONFIG_PATH]:
+        if path.exists():
+            with open(path, "r", encoding="utf-8") as f:
+                config = _merge_config(config, json.load(f))
+            break
     return config
 
 
