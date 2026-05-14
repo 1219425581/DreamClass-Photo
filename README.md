@@ -1,203 +1,277 @@
-# DreamClass Photo - AI 虚拟大合影
+# DreamClass Photo - AI 虚拟结课打卡合影
 
-基于本地 Stable Diffusion 的虚拟班级合影应用。同学扫码输入形象描述，本地 GPU 自动生成角色画像，实时在大屏上展示，最终合成一张星空背景的合影海报。**完全离线运行，无需在线 API。**
+DreamClass Photo 是一个用于课程结课活动的 AI 虚拟合影应用。同学在个人页面填写昵称和形象描述，生成最多三张候选肖像，选择满意的一张同步到大屏；大屏页面实时展示所有同学的虚拟形象，并可导出《人机协同程序设计》结课打卡纪念合影。
+
+当前版本使用在线图片生成 API，不再依赖本地 GPU 模型；线上部署在 Render，并通过校园网 IP 白名单限制访问。
+
+## 功能特性
+
+- 学生端 `/`
+  - 输入昵称和形象描述
+  - 提供丰富提示词灵感和一键填入示例
+  - 每人最多生成 3 张候选肖像
+  - 生成后先在本页预览，不会自动进入大屏
+  - 用户手动选择满意肖像同步到大屏
+  - 提交成功后可点击按钮前往 `/screen` 观看
+
+- 大屏端 `/screen`
+  - 展示《人机协同程序设计》结课打卡纪念合影
+  - 自动轮询房间数据
+  - 根据人数动态调整头像大小、列数、间距和姓名显示
+  - 支持大量同学头像展示
+  - 支持导出合影海报 `class-photo.png`
+
+- 后端
+  - FastAPI 提供生图、候选、提交、房间数据接口
+  - 后台异步生成图片，避免阻塞请求
+  - 支持 SupAI 和 SiliconFlow 两类图片 API 配置
+  - 支持 Render Secret Files 读取敏感配置
+  - 支持校园网 IP 白名单访问控制
+  - 提供 `/healthz` 供 Render 健康检查使用
 
 ## 技术栈
 
 | 层级 | 技术 |
-|------|------|
+| --- | --- |
 | 前端 | React 18 + Vite + Tailwind CSS |
 | 路由 | react-router-dom |
 | 后端 | FastAPI + Uvicorn |
-| 实时通信 | WebSocket |
-| AI 绘图 | 本地 Stable Diffusion v1.5 (diffusers) |
-| GPU 加速 | CUDA + xformers + fp16 |
+| 图片生成 | 在线图片生成 API：SupAI / SiliconFlow |
+| 部署 | Render Blueprint |
+| 访问限制 | 校园网出口 IP 白名单 |
 
 ## 项目结构
 
-```
-dreamclass-fa/
+```text
+DreamClass-Photo/
 ├── backend/
-│   ├── main.py               # FastAPI 主逻辑：REST API + WebSocket 广播 + 静态文件
-│   ├── replicate_client.py   # 本地 SD 推理模块（generate_image 函数）
-│   ├── static/               # 生成的角色图片存放目录
-│   ├── requirements.txt      # Python 依赖
-│   └── .env                  # 环境变量（可选）
-└── frontend/
-    ├── src/
-    │   ├── App.jsx           # 路由入口
-    │   ├── main.jsx          # React 挂载
-    │   ├── index.css         # Tailwind + 自定义样式
-    │   └── pages/
-    │       ├── Join.jsx      # 学生加入页（移动端）
-    │       └── Screen.jsx    # 大屏展示页（Canvas 绘制）
-    ├── index.html
-    ├── vite.config.js        # 开发代理配置
-    ├── tailwind.config.js
-    ├── postcss.config.js
-    └── package.json
+│   ├── main.py                  # FastAPI 主应用
+│   ├── access_control.py        # 校园网 IP 白名单访问控制
+│   ├── image_config.py          # 图片 API 配置加载
+│   ├── replicate_client.py      # 图片 API 调用与提示词增强
+│   ├── supai_image_tool.py      # 单独图片生成测试工具
+│   ├── batch_test_generate.py   # 前后端稳定性批量测试工具
+│   ├── requirements.txt         # Python 依赖
+│   └── static/                  # 生成图片目录
+├── frontend/
+│   ├── src/
+│   │   ├── App.jsx              # 前端路由与校园网访问提示
+│   │   ├── main.jsx             # React 挂载入口
+│   │   ├── index.css            # Tailwind 与自定义样式
+│   │   └── pages/
+│   │       ├── Join.jsx         # 学生生成与提交页
+│   │       └── Screen.jsx       # 大屏合影页与海报导出
+│   ├── vite.config.js           # 本地开发代理
+│   └── package.json
+├── render.yaml                  # Render 部署配置
+└── README.md
 ```
 
-## 功能说明
+## 本地开发
 
-### 学生端 (`/`)
+### 1. 后端
 
-- 深色渐变背景 + 半透明磨砂卡片
-- 输入昵称（可选，默认"匿名同学"）和形象描述
-- 提交后显示等待动画，提示看向大屏幕
-
-### 大屏端 (`/screen`)
-
-- 全屏 Canvas 实时绘制星空背景 + 角色头像
-- WebSocket 实时同步：新角色加入、图片生成完毕
-- 已完成角色：圆形裁剪头像 + 昵称 + 紫色发光边框
-- 生成中角色：半透明占位圆 + 旋转加载动画
-- 底部悬浮栏：显示已生成数量 + "生成合影海报"按钮
-- 海报功能：离屏 Canvas 合成 1920×1080 星空合影，自动下载 `class-photo.png`
-
-### 后端 API
-
-| 接口 | 方法 | 说明 |
-|------|------|------|
-| `/api/generate` | POST | 提交昵称和形象描述，异步生成图片 |
-| `/api/room` | GET | 获取所有角色数据 |
-| `/static/{filename}` | GET | 访问本地生成的角色图片 |
-| `/ws` | WebSocket | 实时推送角色状态变更 |
-
-WebSocket 消息类型：
-
-| type | 说明 |
-|------|------|
-| `init` | 连接时发送当前所有角色列表 |
-| `new_character` | 新角色加入 |
-| `image_ready` | 图片生成完毕（含 done/error 状态） |
-
-## 快速开始
-
-### 前置条件
-
-- **GPU**：NVIDIA 显卡，8GB+ 显存（已验证 RTX 4070 Laptop）
-- **CUDA**：已安装 CUDA Toolkit
-- **Python**：3.11（建议使用 conda 管理环境）
-- **PyTorch**：已安装支持 CUDA 的 PyTorch
-- Node.js >= 18
-
-### 1. 配置后端环境
-
-```bash
-# 创建并激活虚拟环境（如果还没有）
-conda create -n dreamclass python=3.11 -y
+```powershell
 conda activate dreamclass
-
-cd backend
+cd D:\Microsoft_VS_Code\DreamClass-Photo\backend
 pip install -r requirements.txt
+uvicorn main:app --reload
 ```
 
-> 首次运行时 diffusers 会自动下载 `runwayml/stable-diffusion-v1-5` 模型（约 5GB）。由于使用了国内镜像源 (`https://hf-mirror.com`)，下载速度较快。
+后端默认运行在：
 
-### 2. 激活环境并启动后端
-
-```bash
-conda activate dreamclass
-cd backend
-python main.py
+```text
+http://127.0.0.1:8000
 ```
 
-启动时会看到模型加载日志，加载完成后后端运行在 `http://localhost:8000`。
+### 2. 前端
 
-### 3. 启动前端
+另开一个终端：
 
-```bash
-cd frontend
-
-# 安装依赖（国内推荐使用镜像源）
-npm install --registry=https://registry.npmmirror.com
-
-# 启动开发服务器
+```powershell
+cd D:\Microsoft_VS_Code\DreamClass-Photo\frontend
+npm install
 npm run dev
 ```
 
-前端运行在 `http://localhost:5173`，已配置开发代理将 `/api`、`/ws`、`/static` 转发到后端。
+前端默认运行在：
 
-### 4. 使用
-
-1. 大屏设备打开 `http://localhost:5173/screen`
-2. 同学用手机扫码访问 `http://<你的局域网IP>:5173/`
-3. 输入昵称和形象描述，提交生成
-4. 大屏实时显示生成进度和结果（本地 GPU 约 3-5 秒出图）
-5. 全部完成后点击"生成合影海报"下载图片
-
-## AI 图片生成（本地）
-
-使用 diffusers 加载 `runwayml/stable-diffusion-v1-5`，推理参数：
-
-| 参数 | 值 |
-|------|-----|
-| 精度 | fp16 (torch.float16) |
-| 推理步数 | 25 |
-| 引导系数 (CFG) | 7.5 |
-| 输出尺寸 | 512 × 512 |
-| xformers | 启用（不可用时自动降级） |
-| attention_slicing | 始终启用 |
-
-Prompt 自动补全为：
-
-```
-portrait of {用户描述}, digital art, fantasy, vibrant colors, studio lighting, centered, high quality
+```text
+http://localhost:5173
 ```
 
-Negative prompt：
+访问：
 
-```
-blurry, ugly, deformed, low resolution, bad anatomy
-```
-
-## 显存优化
-
-针对 8GB 显存的 GPU，项目已做以下优化：
-
-- **fp16 半精度推理**：显存占用减半
-- **xformers 内存高效注意力**：进一步降低显存峰值
-- **attention_slicing**：始终启用，作为兜底方案
-- **关闭安全检查器**：省去 safety_checker 的额外显存开销
-
-如仍遇显存不足（OOM），可尝试：
-- 减小 `num_inference_steps`（如 20）
-- 减小 `guidance_scale`（如 6.0）
-- 在 `replicate_client.py` 中添加 `pipe.enable_vae_slicing()`
-
-## 部署
-
-### 后端 → Railway / 云服务器
-
-需确保目标机器有 NVIDIA GPU + CUDA，启动命令：
-
-```bash
-uvicorn main:app --host 0.0.0.0 --port $PORT
+```text
+http://localhost:5173/
+http://localhost:5173/screen
 ```
 
-### 前端 → Vercel
+## 图片 API 配置
 
-1. 在 Vercel 导入仓库，Root Directory 设为 `frontend`
-2. 设置环境变量 `VITE_API_BASE_URL` 为后端地址
-3. 代码中需将请求地址改为读取环境变量：
+本地配置文件：
 
-```js
-const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
-
-// fetch 改为
-fetch(`${API_BASE}/api/generate`, ...)
-
-// WebSocket 改为
-const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-const wsHost = API_BASE ? API_BASE.replace(/^https?:\/\//, '') : window.location.host;
-const ws = new WebSocket(`${wsProtocol}//${wsHost}/ws`);
+```text
+backend/image_api_config.json
 ```
 
-## 注意事项
+该文件已被 `.gitignore` 忽略，不要提交到 GitHub。
 
-- 图片生成是异步的，不会阻塞 API 响应
-- Canvas 绘制使用了 `img.crossOrigin = "anonymous"`，本地图片通过后端 `/static` 路径提供，无跨域问题
-- 大屏 Canvas 适配高分屏（devicePixelRatio）
-- 后端数据存储在内存中，重启后清空；生成的图片保留在 `static/` 目录
-- 模型在模块加载时初始化一次，后续推理复用同一 pipeline
+示例结构：
+
+```json
+{
+  "active_provider": "siliconflow",
+  "providers": {
+    "supai": {
+      "api_key": "你的 SupAI API Key",
+      "api_url": "https://vibe.supai.app/v1/images/generations",
+      "model": "gpt-image-2",
+      "size": "1024x1024",
+      "timeout": 600,
+      "retries": 2
+    },
+    "siliconflow": {
+      "api_key": "你的 SiliconFlow API Key",
+      "api_url": "https://api.siliconflow.cn/v1/images/generations",
+      "model": "Kwai-Kolors/Kolors",
+      "size": "768x768",
+      "timeout": 600,
+      "retries": 2
+    }
+  }
+}
+```
+
+Render 线上推荐使用 Secret File：
+
+```text
+/etc/secrets/image_api_config.json
+```
+
+后端读取优先级：
+
+1. `/etc/secrets/image_api_config.json`
+2. `backend/image_api_config.json`
+3. 旧版 `backend/supai_config.json`
+4. 默认配置和环境变量
+
+## API 说明
+
+| 接口 | 方法 | 说明 |
+| --- | --- | --- |
+| `/healthz` | GET | Render 健康检查 |
+| `/api/access-status` | GET | 返回访问控制模式、当前 IP 和是否放行 |
+| `/api/room` | GET | 获取大屏所有角色 |
+| `/api/session/{session_id}` | GET | 获取某个学生的候选生成会话 |
+| `/api/generate` | POST | 生成一张候选肖像 |
+| `/api/submit` | POST | 提交选中的候选肖像到大屏 |
+| `/api/image-provider` | GET | 查看当前图片 API provider |
+| `/api/image-provider` | POST | 临时切换图片 API provider |
+| `/api/debug/reset` | POST | 清空内存数据 |
+| `/api/debug/seed` | POST | 批量生成测试头像数据 |
+| `/static/{filename}` | GET | 访问生成图片 |
+
+## 校园网访问限制
+
+线上通过 IP 白名单限制访问。Render 配置项位于 `render.yaml`：
+
+```yaml
+ACCESS_CONTROL_MODE=campus_ip
+CAMPUS_ALLOWED_CIDRS=222.204.0.0/18,210.35.240.0/20,218.64.56.8/32,2001:250:6c00::/48,39.161.242.104/32
+CAMPUS_ALLOW_PRIVATE_IPS=false
+TRUST_PROXY_HEADERS=true
+```
+
+说明：
+
+- `ACCESS_CONTROL_MODE=campus_ip`：启用校园网 IP 限制
+- `CAMPUS_ALLOWED_CIDRS`：允许访问的校园网出口 IP 段
+- `CAMPUS_ALLOW_PRIVATE_IPS=false`：线上不自动放行私有地址
+- `TRUST_PROXY_HEADERS=true`：通过 Render / Cloudflare 代理头识别真实访问 IP
+
+如果有同学在宿舍运营商校园网无法访问，可让他访问：
+
+```text
+https://你的域名/api/access-status
+```
+
+返回中会包含：
+
+```json
+{
+  "detail": "请连接南昌大学校园网后再使用本服务",
+  "clientIp": "访问者公网 IP"
+}
+```
+
+将该 `clientIp` 以 `/32` 形式加入 `CAMPUS_ALLOWED_CIDRS` 后重新部署即可。
+
+## Render 部署
+
+项目使用 `render.yaml` 部署：
+
+```yaml
+services:
+  - type: web
+    name: dreamclass-photo
+    env: python
+    region: singapore
+    plan: free
+    buildCommand: pip install -r backend/requirements.txt && cd frontend && npm install && npm run build
+    startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips='*'
+    healthCheckPath: /healthz
+```
+
+部署步骤：
+
+1. 将代码推送到 GitHub。
+2. 在 Render 中创建 Blueprint 或连接该仓库。
+3. 配置 Secret File：`/etc/secrets/image_api_config.json`。
+4. 确认 `CAMPUS_ALLOWED_CIDRS` 包含需要放行的校园网出口 IP。
+5. 点击 `Manual Deploy -> Deploy latest commit`。
+
+Render 线上验证：
+
+```text
+https://你的域名/healthz
+https://你的域名/api/access-status
+```
+
+## 常用命令
+
+### 前端构建
+
+```powershell
+npm --prefix frontend run build
+```
+
+### 后端语法检查
+
+```powershell
+python -m py_compile backend/main.py backend/access_control.py backend/image_config.py backend/replicate_client.py
+```
+
+### 批量测试前后端稳定性
+
+```powershell
+cd backend
+python batch_test_generate.py --target 200
+python batch_test_generate.py --cases --target 200 --step 10
+```
+
+### 单独测试图片 API
+
+```powershell
+cd backend
+python supai_image_tool.py "阳光少年，白色衬衫，清新写实" --provider siliconflow
+python supai_image_tool.py "阳光少年，白色衬衫，清新写实" --provider supai
+```
+
+## 数据与安全说明
+
+- `backend/image_api_config.json`、`backend/supai_config.json`、`backend/.env` 不应提交。
+- 生成图片位于 `backend/static/`，默认忽略 `.png` 文件。
+- 后端角色、候选会话数据存储在内存中，服务重启后会清空。
+- Render 免费实例可能存在冷启动；`/healthz` 用于健康检查，不受校园网限制影响。
+- 当前校园网 IP 段来自公开资料和实际测试 IP，若用于正式长期服务，应以学校网络与信息中心确认的出口 IP 段为准。
