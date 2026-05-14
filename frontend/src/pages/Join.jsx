@@ -254,10 +254,13 @@ export default function Join() {
                         type="button"
                         onClick={() => setPrompt(example)}
                         disabled={isGenerating || attemptsUsed >= maxAttempts}
-                        className="group rounded-xl border border-white/10 bg-white/[0.06] px-3 py-2 text-left text-[11px] leading-relaxed text-white/65 transition hover:-translate-y-0.5 hover:border-violet-300/50 hover:bg-violet-400/15 hover:text-white hover:shadow-lg hover:shadow-violet-950/20 disabled:opacity-45"
+                        className="group flex min-h-[76px] flex-col justify-between rounded-xl border border-white/10 bg-white/[0.06] px-3 py-2 text-left text-[11px] leading-relaxed text-white/65 transition hover:-translate-y-0.5 hover:border-violet-300/50 hover:bg-violet-400/15 hover:text-white hover:shadow-lg hover:shadow-violet-950/20 disabled:opacity-45"
                       >
                         <span>{example}</span>
-                        <span className="mt-1 block text-[10px] font-semibold text-violet-200/0 transition group-hover:text-violet-200">点击填入 ↑</span>
+                        <span className="mt-2 inline-flex items-center gap-1 self-start rounded-full bg-violet-300/10 px-2 py-0.5 text-[10px] font-semibold text-violet-200/75 transition group-hover:bg-violet-300/20 group-hover:text-violet-100">
+                          点击填入
+                          <span className="transition group-hover:-translate-y-0.5">↑</span>
+                        </span>
                       </button>
                     ))}
                   </div>
