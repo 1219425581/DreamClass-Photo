@@ -301,7 +301,7 @@ export default function Screen() {
                     <button
                       key={char.id}
                       type="button"
-                      title={`${char.nickname}：${char.prompt}`}
+                      title={char.nickname}
                       className="group flex flex-col items-center rounded-2xl outline-none transition-transform duration-200 hover:-translate-y-1 focus-visible:ring-2 focus-visible:ring-violet-300"
                       style={{
                         width: `${gridMetrics.avatarSize}px`,
