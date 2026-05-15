@@ -96,6 +96,10 @@ class ProviderRequest(BaseModel):
     provider: str
 
 
+def count_successful_candidates(draft: dict) -> int:
+    return sum(1 for item in draft["candidates"] if item["status"] == "done" and item["imageUrl"])
+
+
 # ── REST API ──────────────────────────────────────────────
 @app.get("/healthz")
 async def healthz():
@@ -123,6 +127,8 @@ async def get_session(session_id: str):
     draft = draft_sessions.get(session_id)
     if not draft:
         raise HTTPException(status_code=404, detail="会话不存在")
+    draft["attemptsUsed"] = count_successful_candidates(draft)
+    draft["maxAttempts"] = MAX_ATTEMPTS
     return draft
 
 
@@ -179,7 +185,9 @@ async def api_generate(req: GenerateRequest):
         raise HTTPException(status_code=400, detail="已经提交到大屏")
     if draft["status"] == "generating":
         raise HTTPException(status_code=409, detail="上一张肖像还在生成中")
-    if draft["attemptsUsed"] >= MAX_ATTEMPTS:
+    successful_attempts = count_successful_candidates(draft)
+    if successful_attempts >= MAX_ATTEMPTS:
+        draft["attemptsUsed"] = successful_attempts
         raise HTTPException(status_code=400, detail="三次生成机会已用完")
 
     draft["nickname"] = nickname
@@ -191,7 +199,7 @@ async def api_generate(req: GenerateRequest):
         "status": "generating",
         "imageUrl": None,
     }
-    draft["attemptsUsed"] += 1
+    draft["attemptsUsed"] = successful_attempts
     draft["candidates"].append(candidate)
 
     asyncio.create_task(_do_generate_candidate(session_id, candidate["id"], prompt))
@@ -314,6 +322,7 @@ async def _do_generate_candidate(session_id: str, candidate_id: str, prompt: str
                 candidate["status"] = "error"
             break
 
+    draft["attemptsUsed"] = count_successful_candidates(draft)
     draft["status"] = "idle"
 
 
