@@ -61,7 +61,8 @@ app.add_middleware(
 
 @app.middleware("http")
 async def campus_access_middleware(request: Request, call_next):
-    if request.url.path == "/healthz":
+    public_paths = {"/", "/screen", "/healthz", "/share-cover.png", "/419100230002.txt"}
+    if request.url.path in public_paths:
         return await call_next(request)
     if ACCESS_CONFIG.get("mode") == "campus_ip" and not request.url.path.startswith("/assets/"):
         client_ip = get_client_ip(request)
