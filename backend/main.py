@@ -329,6 +329,10 @@ async def _do_generate_candidate(session_id: str, candidate_id: str, prompt: str
 # ── 前端页面 ──────────────────────────────────────────────
 @app.get("/{full_path:path}")
 async def serve_frontend(full_path: str):
+    requested_file = (FRONTEND_DIST / full_path).resolve()
+    if FRONTEND_DIST.resolve() in requested_file.parents and requested_file.is_file():
+        return FileResponse(requested_file)
+
     index_file = FRONTEND_DIST / "index.html"
     if index_file.exists():
         return FileResponse(index_file)
